@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
 const encrypt = require('mongoose-encryption');
-const md5 = require('md5');
+const bcrypt = require('bcrypt');
 
 const app = express();
 mongoose.connect('mongodb://' + process.env.DB_HOST + ':'+ process.env.DB_PORT + '/' + process.env.DB_NAME , (err)=>{
@@ -16,6 +16,8 @@ mongoose.connect('mongodb://' + process.env.DB_HOST + ':'+ process.env.DB_PORT +
         console.log("DB Connection successful");
     }
 })
+
+const saltRounds = 10;
 
 const userSchema = new mongoose.Schema({
     email: String,
@@ -43,42 +45,42 @@ app.get('/register', (req, res)=>{
 })
 
 app.post('/register', (req, res)=>{
-    console.log('Entering post register route');
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+        newUser.save((err)=>{
+            if(err){
+                console.log('Error saving new user:');
+                console.log(err);
+            }else{
+                res.render('secrets');
+            }
+        })
     });
-    newUser.save((err)=>{
-        if(err){
-            console.log('Error saving new user:');
-            console.log(err);
-        }else{
-            res.render('secrets');
-        }
-    })
 })
 
 app.post('/login', (req, res)=>{
     console.log('Entering post login route');
     const username = req.body.username;
-    const pass = md5(req.body.password);
+    const clearPass = req.body.password;
 
     User.findOne({email: username}, (err, foundUser)=>{
-        console.log(foundUser);
         if(err){
             console.log('Error getting users from db:');
             console.log(err);
         }else{
             if(foundUser){
-                if(foundUser.password === pass){
-                    res.render('secrets');
-                }
+                bcrypt.compare(clearPass, foundUser.password, function(err, result) {
+                    if(result){
+                        res.render('secrets');
+                    }
+                });
             }
         }
     })
 })
-
-
 
 app.listen(3000, ()=>{
     console.log('Server listening on port 3000');
