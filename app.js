@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const req = require('express/lib/request');
 
 // ********************************* app config *********************************
 
@@ -72,6 +73,12 @@ app.get('/secrets', (req, res)=>{
     }else{
         res.redirect("/login");
     }
+})
+
+app.get('/logout', (req, res)=>{
+    req.logout(()=>{
+        res.redirect('/');
+    });
 })
 
 app.post('/register', (req, res)=>{
