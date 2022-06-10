@@ -43,7 +43,10 @@ mongoose.connect('mongodb://' + process.env.DB_HOST + ':'+ process.env.DB_PORT +
 // mongoose User Schema
 const userSchema = new mongoose.Schema({
     email: String,
-    password: String
+    password: String,
+    name: String,
+    googleId: String,
+    language: String
 });
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
@@ -61,7 +64,7 @@ passport.use(new GoogleStrategy({                                       //passpo
   },
   function(accessToken, refreshToken, profile, cb) {
     console.log(profile);
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    User.findOrCreate({ googleId: profile.id }, { name: profile.displayName, email: profile.email, language: profile.language }, function (err, user) {
         return cb(err, user);
     }); 
   }
