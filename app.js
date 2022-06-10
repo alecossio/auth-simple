@@ -21,7 +21,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 // initialize session config
 app.use(session({
-    secret: 'My little secret',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true
 }))
@@ -142,11 +142,9 @@ app.post('/login', (req, res)=>{
     })
 });
 
-app.get('/auth/google',
-    passport.authenticate('google', { scope: [ 'email', 'profile' ] }));
+app.get('/auth/google', passport.authenticate('google', { scope: [ 'email', 'profile' ] }));
 
-app.get( '/auth/google/secrets',
-    passport.authenticate( 'google', { successRedirect: '/secrets', failureRedirect: '/login'} ));
+app.get( '/auth/google/secrets', passport.authenticate( 'google', { successRedirect: '/secrets', failureRedirect: '/login'} ));
 
 app.listen(3000, ()=>{
     console.log('Server listening on port 3000');
