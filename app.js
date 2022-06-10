@@ -8,6 +8,8 @@ const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
 const req = require('express/lib/request');
+const GoogleStrategy = require( 'passport-google-oauth2' ).Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 // ********************************* app config *********************************
 
@@ -44,14 +46,39 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 // mongoose User model
 const User = mongoose.model('User', userSchema);
 
-// passport-local-strategy config
-passport.use(User.createStrategy());                //method added by passportLocalMongoose plugin
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// passport.js strategies
+passport.use(User.createStrategy());                                    //passport-local-mongoose
+passport.use(new GoogleStrategy({                                       //passport-google-oauth2
+    clientID:     process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets",
+    passReqToCallback   : false
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+        return cb(err, user);
+    }); 
+  }
+));
+
+passport.serializeUser(function(user, cb) {
+    process.nextTick(function() {
+      cb(null, { id: user.id, username: user.username, name: user.name });
+    });
+  });
+
+  passport.deserializeUser(function(user, cb) {
+    process.nextTick(function() {
+      return cb(null, user);
+    });
+  });
+
 
 // ********************************* Routes *********************************
 
@@ -111,6 +138,12 @@ app.post('/login', (req, res)=>{
         }
     })
 });
+
+app.get('/auth/google',
+    passport.authenticate('google', { scope: [ 'email', 'profile' ] }));
+
+app.get( '/auth/google/secrets',
+    passport.authenticate( 'google', { successRedirect: '/secrets', failureRedirect: '/login'} ));
 
 app.listen(3000, ()=>{
     console.log('Server listening on port 3000');
