@@ -7,9 +7,10 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
-const req = require('express/lib/request');
 const GoogleStrategy = require( 'passport-google-oauth2' ).Strategy;
+const FacebookStrategy = require('passport-facebook');
 const findOrCreate = require('mongoose-findorcreate');
+const req = require('express/lib/request');
 
 // ********************************* app config *********************************
 
@@ -38,7 +39,7 @@ mongoose.connect('mongodb://' + process.env.DB_HOST + ':'+ process.env.DB_PORT +
     }else{
         console.log("DB Connection successful");
     }
-})
+});
 
 // mongoose User Schema
 const userSchema = new mongoose.Schema({
@@ -46,6 +47,7 @@ const userSchema = new mongoose.Schema({
     password: String,
     name: String,
     googleId: String,
+    facebookId: String,
     language: String
 });
 userSchema.plugin(passportLocalMongoose);
@@ -69,18 +71,30 @@ passport.use(new GoogleStrategy({                                       //passpo
     }); 
   }
 ));
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: 'http://localhost:3000/auth/facebook/secrets'
+  },
+  function(accessToken, refreshToken, profile, cb) {
+      console.log(profile);
+      User.findOrCreate({ facebookId: profile.id }, { name: profile.displayName }, function (err, user) {
+        return cb(err, user);
+    }); 
+  }
+));
 
+// user serializing for session establishment
 passport.serializeUser(function(user, cb) {
     process.nextTick(function() {
       cb(null, { id: user.id, username: user.username, name: user.name });
     });
-  });
-
-  passport.deserializeUser(function(user, cb) {
+});
+passport.deserializeUser(function(user, cb) {
     process.nextTick(function() {
       return cb(null, user);
     });
-  });
+});
 
 
 // ********************************* Routes *********************************
@@ -142,9 +156,14 @@ app.post('/login', (req, res)=>{
     })
 });
 
+//this below is really necessary ?
 app.get('/auth/google', passport.authenticate('google', { scope: [ 'email', 'profile' ] }));
 
 app.get( '/auth/google/secrets', passport.authenticate( 'google', { successRedirect: '/secrets', failureRedirect: '/login'} ));
+
+app.get('/auth/facebook', passport.authenticate('facebook', { scope: [ 'email', 'public_profile' ] }));
+
+app.get( '/auth/facebook/secrets', passport.authenticate( 'facebook', { successRedirect: '/secrets', failureRedirect: '/login'} ));
 
 app.listen(3000, ()=>{
     console.log('Server listening on port 3000');
