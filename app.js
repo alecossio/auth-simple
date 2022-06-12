@@ -48,7 +48,8 @@ const userSchema = new mongoose.Schema({
     name: String,
     googleId: String,
     facebookId: String,
-    language: String
+    language: String,
+    secret: String
 });
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
@@ -101,43 +102,36 @@ passport.deserializeUser(function(user, cb) {
 
 app.get('/', (req, res)=>{
     res.render("home");
-})
-
+});
 app.get('/login', (req, res)=>{
     res.render("login");
-})
-
+});
 app.get('/register', (req, res)=>{
     res.render("register");
-})
-
+});
 app.get('/secrets', (req, res)=>{
-    if(req.isAuthenticated()){
-        res.render('secrets');
-    }else{
-        res.redirect("/login");
-    }
-})
-
+    User.find({secret:{$ne: null}}, (err, foundUsers)=>{
+        if(err){
+            console.log(err);
+        }else{
+            if(foundUsers){
+                res.render('secrets', {foundUsers: foundUsers});
+            }
+        }
+    })
+});
 app.get('/logout', (req, res)=>{
     req.logout(()=>{
         res.redirect('/');
     });
-})
-
-app.post('/register', (req, res)=>{
-    User.register({username: req.body.username}, req.body.password, (err)=>{
-        if(err){
-            res.redirect("/register");
-        }else{
-            passport.authenticate("local")(req, res, ()=>{
-                res.redirect("/secrets");
-            })
-        }
-    });
-     
 });
-
+app.get('/submit', (req, res)=>{
+    if(req.isAuthenticated()){
+        res.render('submit');
+    }else{
+        res.redirect("/login");
+    }
+});
 app.post('/login', (req, res)=>{
     const user = new User({
         username: req.body.username,
@@ -155,8 +149,36 @@ app.post('/login', (req, res)=>{
         }
     })
 });
+app.post('/register', (req, res)=>{
+    User.register({username: req.body.username}, req.body.password, (err)=>{
+        if(err){
+            res.redirect("/register");
+        }else{
+            passport.authenticate("local")(req, res, ()=>{
+                res.redirect("/secrets");
+            })
+        }
+    });
+     
+});
+app.post('/submit', (req, res)=>{
+    if(req.isAuthenticated()){
+        console.log(req.user);
+        User.findById(req.user.id, (err, foundUser)=>{
+            foundUser.update({secret: req.body.secret}, (err, result)=>{
+                if(err){
+                    console.log(err);
+                }else{
+                    console.log("Result: " + result);
+                    res.redirect('/secrets');
+                }
+            })
+        });
+    }else{
+        res.redirect("/login");
+    }
+})
 
-//this below is really necessary ?
 app.get('/auth/google', passport.authenticate('google', { scope: [ 'email', 'profile' ] }));
 
 app.get( '/auth/google/secrets', passport.authenticate( 'google', { successRedirect: '/secrets', failureRedirect: '/login'} ));
